@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard & Cronograma - Proyecto FLOW</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-tertiary: #64748b;
+            --border-color: #e2e8f0;
+            --nav-bg: #0f172a;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .card { transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        input[type=range] { accent-color: #2563eb; }
+        
+        /* Animaciones */
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .nav-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; }
+        
+        /* Estilos para inputs de fecha */
+        input[type="date"] {
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        input[type="date"]:focus { border-color: #2563eb; ring: 2px solid #bfdbfe; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+
+        .modal-content {
+            background-color: var(--bg-secondary);
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .close-modal {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            transition: color 0.2s;
+        }
+
+        .close-modal:hover { color: var(--text-primary); }
+
+        /* Badges de estado */
+        .badge-nuevo { background-color: #dbeafe; color: #1e40af; }
+        .badge-progreso { background-color: #fef3c7; color: #92400e; }
+        .badge-bloqueado { background-color: #fee2e2; color: #991b1b; }
+        .badge-revision { background-color: #ddd6fe; color: #4f46e5; }
+        .badge-completado { background-color: #dcfce7; color: #15803d; }
+
+        /* Filtros y búsqueda */
+        .filter-panel {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 1rem;
+            background-color: var(--bg-tertiary);
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-item {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-item label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--text-tertiary);
+        }
+
+        .filter-item select,
+        .filter-item input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        /* Cards de estadísticas */
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-card.by-area {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.by-assignee {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col min-h-screen">
+
+    <nav class="bg-slate-900 text-white p-4 shadow-xl sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="p-2 rounded-lg">
+                    <img src="https://www.s-lecfilm.com/wp-content/themes/s-lecfilm/images/footer-logo.png" alt="FLOW Logo" style="width: 128px;">
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">FLOW WMS <span class="text-blue-400">Tracker</span></h1>
+                    <p class="text-xs text-slate-400">Gestión de Prioridades Críticas</p>
+                </div>
+            </div>
+            
+            <div class="hidden md:flex bg-slate-800 rounded-lg p-1 gap-1">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-btn active px-4 py-2 rounded-md text-sm font-medium transition-all text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-chart-pie mr-2"></i> Dashboard
+                </button>
+                <button onclick="switchTab('schedule')" id="btn-schedule" class="nav-btn px-4 py-2 rounded-md text-sm font-medium transition-all text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-calendar-days mr-2"></i> Cronograma
+                </button>
+            </div>
+
+            <div class="text-right hidden lg:block">
+                <div class="flex items-center gap-2">
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">Hoy es</p>
+                        <p class="text-xs font-bold text-white" id="currentDateHeader"></p>
+                    </div>
+                    <i class="fa-regular fa-calendar text-slate-500"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="md:hidden bg-white border-b p-2 flex justify-center gap-2 sticky top-[72px] z-40">
+        <button onclick="switchTab('dashboard')" class="flex-1 py-2 px-4 rounded border text-sm font-bold bg-blue-50 text-blue-600 border-blue-200">Dashboard</button>
+        <button onclick="switchTab('schedule')" class="flex-1 py-2 px-4 rounded border text-sm font-bold text-slate-600">Cronograma</button>
+    </div>
+
+    <main class="container mx-auto p-4 flex-grow">
+        
+        <div id="view-dashboard" class="fade-in">
+            <div class="filter-panel">
+                <div class="filter-item flex-1 min-w-[200px]">
+                    <label>🔍 Buscar Incidencia</label>
+                    <input type="text" id="searchInput" placeholder="ID, título o descripción..." onkeyup="filterItems()" class="">
+                </div>
+                <div class="filter-item">
+                    <label>Prioridad</label>
+                    <select id="filterPriority" onchange="filterItems()" class="">
+                        <option value="">Todas</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>Área</label>
+                    <select id="filterArea" onchange="filterItems()" class="">
+                        <option value="">Todas</option>
+                        <option value="Almacén">Almacén</option>
+                        <option value="Producción">Producción</option>
+                        <option value="Ventas">Ventas</option>
+                        <option value="Calidad">Calidad</option>
+                        <option value="Finanzas">Finanzas</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>Estado</label>
+                    <select id="filterStatus" onchange="filterItems()" class="">
+                        <option value="">Todos</option>
+                        <option value="Nuevo">Nuevo</option>
+                        <option value="En Progreso">En Progreso</option>
+                        <option value="Bloqueado">Bloqueado</option>
+                        <option value="En Revisión">En Revisión</option>
+                        <option value="Completado">Completado</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>Responsable</label>
+                    <input type="text" id="filterAssignee" placeholder="Nombre..." onkeyup="filterItems()" class="">
+                </div>
+                <button onclick="clearFilters()" class="px-4 py-2 bg-slate-400 hover:bg-slate-500 text-white rounded-lg transition text-sm font-bold mt-5">
+                    <i class="fa-solid fa-times mr-2"></i> Limpiar
+                </button>
+                <button onclick="openCreateIncidentModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition text-sm font-bold mt-5">
+                    <i class="fa-solid fa-plus mr-2"></i> Nueva
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
+                <div class="md:col-span-3 stat-card">
+                    <div class="text-sm">Total Incidencias</div>
+                    <div class="stat-value" id="totalIncidents">0</div>
+                    <div class="text-[10px]">En el sistema</div>
+                </div>
+                <div class="md:col-span-3 stat-card by-area">
+                    <div class="text-sm">Vencidas/Bloqueadas</div>
+                    <div class="stat-value" id="criticalCount">0</div>
+                    <div class="text-[10px]">Requieren atención</div>
+                </div>
+                <div class="md:col-span-3 stat-card by-assignee">
+                    <div class="text-sm">Avance Promedio</div>
+                    <div class="stat-value" id="avgProgress">0%</div>
+                    <div class="text-[10px]">Global</div>
+                </div>
+                <div class="md:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <button onclick="exportToCSV()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg transition mb-2 flex items-center justify-center gap-2 text-xs">
+                        <i class="fa-solid fa-download text-sm"></i> CSV
+                    </button>
+                    <button onclick="window.print()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-2 text-xs">
+                        <i class="fa-solid fa-file-pdf text-sm"></i> PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
+                <div class="md:col-span-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10">
+                        <i class="fa-solid fa-chart-line text-8xl text-blue-600"></i>
+                    </div>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider">Avance Global</h3>
+                    <div class="flex items-end gap-2 mt-2">
+                        <span class="text-5xl font-extrabold text-blue-600" id="globalProgress">0%</span>
+                        <span class="text-sm text-slate-400 mb-2">Completado</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-3 mt-4">
+                        <div class="bg-blue-600 h-3 rounded-full transition-all duration-1000 shadow-lg shadow-blue-200" id="globalProgressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-red-50 p-3 rounded-lg border border-red-100">
+                            <span class="text-xs text-red-600 font-bold uppercase block mb-1">Críticos (Alta)</span>
+                            <span class="text-2xl font-bold text-red-700" id="highPriorityText">0%</span>
+                            <div class="w-full bg-red-200 rounded-full h-1.5 mt-2">
+                                <div class="bg-red-500 h-1.5 rounded-full" id="highPriorityBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                            <span class="text-xs text-amber-600 font-bold uppercase block mb-1">Media Prioridad</span>
+                            <span class="text-2xl font-bold text-amber-700" id="mediumPriorityText">0%</span>
+                            <div class="w-full bg-amber-200 rounded-full h-1.5 mt-2">
+                                <div class="bg-amber-500 h-1.5 rounded-full" id="mediumPriorityBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-3 flex flex-col gap-3">
+                </div>
+            </div>
+
+            <div id="itemsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+                </div>
+        </div>
+
+        <div id="view-schedule" class="hidden fade-in pb-12">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Plan de Trabajo (Cronograma)</h2>
+                        <p class="text-slate-500 text-sm">Define las fechas compromiso para cada incidencia.</p>
+                    </div>
+                    <div class="text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200">
+                        <i class="fa-solid fa-clock mr-1"></i> Hoy: <span id="scheduleTodayDate" class="font-bold"></span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-bold">
+                                <th class="p-4 rounded-tl-lg">ID / Actividad</th>
+                                <th class="p-4">Prioridad</th>
+                                <th class="p-4">Inicio</th>
+                                <th class="p-4">Fin (Deadline)</th>
+                                <th class="p-4">Estatus Tiempo</th>
+                                <th class="p-4 rounded-tr-lg w-1/4">Progreso</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody" class="text-sm divide-y divide-slate-100">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal de Autenticación -->
+    <div id="authModal" class="modal" onclick="closeAuthModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="text-xl font-bold">Acceso Requerido</h2>
+                <span class="close-modal" onclick="closeAuthModal()">&times;</span>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-bold mb-2">Ingrese la contraseña para realizar cambios:</label>
+                <input type="password" id="authPassword" class="w-full p-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" placeholder="Contraseña..." onkeypress="if(event.key==='Enter') verifyPassword()">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="verifyPassword()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    <i class="fa-solid fa-lock-open mr-2"></i> Acceder
+                </button>
+                <button onclick="closeAuthModal()" class="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Crear Incidencia -->
+    <div id="createIncidentModal" class="modal" onclick="closeCreateIncidentModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="text-xl font-bold">Crear Nueva Incidencia</h2>
+                <span class="close-modal" onclick="closeCreateIncidentModal()">&times;</span>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold mb-2">Título</label>
+                    <input type="text" id="newTitle" class="w-full p-3 border border-slate-300 rounded-lg" placeholder="Ej: Error en sistema X">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-2">Descripción</label>
+                    <textarea id="newDesc" class="w-full h-24 p-3 border border-slate-300 rounded-lg resize-none" placeholder="Detalles del problema..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-2">Prioridad</label>
+                        <select id="newPriority" class="w-full p-3 border border-slate-300 rounded-lg">
+                            <option value="Alta">Alta</option>
+                            <option value="Media">Media</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-2">Área</label>
+                        <select id="newArea" class="w-full p-3 border border-slate-300 rounded-lg">
+                            <option value="Almacén">Almacén</option>
+                            <option value="Producción">Producción</option>
+                            <option value="Ventas">Ventas</option>
+                            <option value="Calidad">Calidad</option>
+                            <option value="Finanzas">Finanzas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="saveNewIncident()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    <i class="fa-solid fa-plus mr-2"></i> Crear
+                </button>
+                <button onclick="closeCreateIncidentModal()" class="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Notas -->
+    <div id="notesModal" class="modal" onclick="closeNotesModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="text-xl font-bold" id="notesModalTitle">Notas técnicas</h2>
+                <span class="close-modal" onclick="closeNotesModal()">&times;</span>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-bold mb-2">Escriba comentarios técnicos o justificaciones:</label>
+                <textarea id="notesTextarea" class="w-full h-48 p-3 border border-slate-300 rounded-lg resize-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" placeholder="Ej: Esperando respuesta de Japón, bloqueado por BD..."></textarea>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="saveNotes()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    <i class="fa-solid fa-check mr-2"></i> Guardar
+                </button>
+                <button onclick="closeNotesModal()" class="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DATA SOURCE
+        const initialData = [
+            { id: 1, priority: 'Alta', area: 'Almacén', title: 'Layouts PT/Bodegas', desc: 'Falla crítica en BonitaSoft al modificar layouts.', progress: 10, start: '', end: '', assignee: '', notes: '', status: 'En Progreso' },
+            { id: 2, priority: 'Alta', area: 'Almacén', title: 'Duplicación Lotes', desc: 'Sistema permite doble asignación de ubicación.', progress: 5, start: '', end: '', assignee: '', notes: '', status: 'Bloqueado' },
+            { id: 3, priority: 'Media', area: 'Almacén', title: 'Bloqueo Reubicación', desc: 'Loop infinito al mover material suelto.', progress: 0, start: '', end: '', assignee: '', notes: '', status: 'Nuevo' },
+            { id: 4, priority: 'Alta', area: 'Almacén', title: 'Lentitud Históricos', desc: 'Registros de 2019 "muertos" ralentizan consultas.', progress: 25, start: '', end: '', assignee: '', notes: '', status: 'En Progreso' },
+            { id: 5, priority: 'Media', area: 'Producción', title: 'Baja Scrap/Reciclado', desc: 'Rollos NG no se pueden dar de baja.', progress: 0, start: '', end: '', assignee: '', notes: '', status: 'Nuevo' },
+            { id: 6, priority: 'Media', area: 'Ventas', title: 'Carga Shipping Data', desc: 'Rechazo de IDs de Japón por falta de catálogo.', progress: 0, start: '', end: '', assignee: '', notes: '', status: 'Bloqueado' },
+            { id: 7, priority: 'Alta', area: 'Calidad', title: 'Bloqueo Evidencias', desc: 'Imposible cerrar embarques sin fotos.', progress: 0, start: '', end: '', assignee: '', notes: '', status: 'En Revisión' },
+            { id: 8, priority: 'Media', area: 'Finanzas', title: 'Módulo Devoluciones', desc: 'Sin uso desde 2023 por error en QR.', progress: 0, start: '', end: '', assignee: '', notes: '', status: 'Nuevo' }
+        ];
+
+        // STATE
+        let appData = JSON.parse(localStorage.getItem('flowData_v3')) || initialData;
+        let isAuthenticated = false;
+        const PASSWORD = 'flow123';
+
+        // DATE UTILS
+        const today = new Date();
+        const dateStr = today.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+        document.getElementById('currentDateHeader').textContent = dateStr;
+        document.getElementById('scheduleTodayDate').textContent = dateStr;
+
+        // INIT
+        function init() {
+            renderDashboard();
+            renderSchedule();
+            updateStats();
+        }
+
+        // --- RENDER DASHBOARD ---
+        function renderDashboard() {
+            const container = document.getElementById('itemsContainer');
+            container.innerHTML = '';
+            
+            filteredData.forEach((item, origIndex) => {
+                const index = appData.findIndex(i => i.id === item.id);
+                const isHigh = item.priority === 'Alta';
+                const badgeColor = isHigh ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200';
+                const borderClass = isHigh ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-amber-500';
+
+                const html = `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 ${borderClass} relative hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex gap-2 items-center">
+                            <span class="text-[10px] font-extrabold uppercase px-2 py-1 rounded border ${badgeColor}">
+                                ${item.priority}
+                            </span>
+                            <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                                ${item.area}
+                            </span>
+                        </div>
+                        <span class="text-2xl font-bold text-blue-600 w-16 text-right" id="dash-percent-${index}">${item.progress}%</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-lg font-bold text-slate-800 flex-1">#${item.id} ${item.title}</h3>
+                        <select onchange="updateData(${index}, 'status', this.value)" class="text-[10px] px-2 py-1 rounded border badge-${(item.status || 'nuevo').toLowerCase().replace(' ', '-')} cursor-pointer font-bold">
+                            <option value="Nuevo" ${item.status === 'Nuevo' ? 'selected' : ''}>Nuevo</option>
+                            <option value="En Progreso" ${item.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
+                            <option value="Bloqueado" ${item.status === 'Bloqueado' ? 'selected' : ''}>Bloqueado</option>
+                            <option value="En Revisión" ${item.status === 'En Revisión' ? 'selected' : ''}>En Revisión</option>
+                            <option value="Completado" ${item.status === 'Completado' ? 'selected' : ''}>Completado</option>
+                        </select>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-2 h-10 overflow-hidden text-ellipsis leading-snug">${item.desc}</p>
+                    
+                    ${item.assignee ? `<div class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded mb-3 inline-block border border-blue-200"><i class="fa-solid fa-user mr-1"></i>${item.assignee}</div>` : ''}
+                    
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="openNotesModal(${index})" class="text-xs px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1">
+                            <i class="fa-solid fa-sticky-note"></i> Notas
+                        </button>
+                        <input type="text" placeholder="Responsable" value="${item.assignee || ''}" 
+                            onchange="updateData(${index}, 'assignee', this.value)"
+                            class="text-xs px-2 py-1 rounded border border-slate-300 flex-1 bg-slate-50 text-slate-700">
+                    </div>
+                    
+                    <div>
+                        <input type="range" min="0" max="100" value="${item.progress}" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer hover:bg-slate-300 transition"
+                            oninput="updateData(${index}, 'progress', this.value)"
+                        >
+                    </div>
+                </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // --- RENDER SCHEDULE ---
+        function renderSchedule() {
+            const tbody = document.getElementById('scheduleTableBody');
+            tbody.innerHTML = '';
+
+            appData.forEach((item, index) => {
+                const isHigh = item.priority === 'Alta';
+                const statusObj = getTimeStatus(item.end, item.progress);
+                
+                const html = `
+                <tr class="hover:bg-slate-50 transition group">
+                    <td class="p-4">
+                        <div class="font-bold text-slate-800">#${item.id} ${item.title}</div>
+                        <div class="text-xs text-slate-400">${item.area}</div>
+                    </td>
+                    <td class="p-4">
+                        <div>
+                            <span class="text-xs font-bold px-2 py-1 rounded block ${isHigh ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}">
+                                ${item.priority}
+                            </span>
+                            ${item.assignee ? `<div class="text-[10px] text-slate-500 mt-1"><i class="fa-solid fa-user mr-0.5"></i>${item.assignee}</div>` : ''}
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <div>
+                            <input type="date" value="${item.start}" onchange="updateData(${index}, 'start', this.value)">
+                            ${item.notes ? `<div class="text-[10px] text-yellow-600 mt-1 cursor-pointer hover:text-yellow-700" onclick="openNotesModal(${index})"><i class="fa-solid fa-note-sticky"></i> Ver notas</div>` : ''}
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <input type="date" value="${item.end}" onchange="updateData(${index}, 'end', this.value)">
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full ${statusObj.color}"></div>
+                            <span class="text-xs font-semibold ${statusObj.textColor}">${statusObj.text}</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-1">${statusObj.subtext}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-slate-600" id="sched-percent-${index}">${item.progress}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${item.progress}%" id="sched-bar-${index}"></div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+                tbody.innerHTML += html;
+            });
+        }
+
+        // LOGIC
+        let currentEditingIndex = null;
+        let filteredData = appData;
+
+        function filterItems() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const priority = document.getElementById('filterPriority').value;
+            const area = document.getElementById('filterArea').value;
+            const status = document.getElementById('filterStatus').value;
+            const assignee = document.getElementById('filterAssignee').value.toLowerCase();
+
+            filteredData = appData.filter(item => {
+                const matchSearch = !search || 
+                    item.id.toString().includes(search) ||
+                    item.title.toLowerCase().includes(search) ||
+                    item.desc.toLowerCase().includes(search);
+                const matchPriority = !priority || item.priority === priority;
+                const matchArea = !area || item.area === area;
+                const matchStatus = !status || item.status === status;
+                const matchAssignee = !assignee || (item.assignee && item.assignee.toLowerCase().includes(assignee));
+                
+                return matchSearch && matchPriority && matchArea && matchStatus && matchAssignee;
+            });
+
+            renderDashboard();
+            updateStats();
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterPriority').value = '';
+            document.getElementById('filterArea').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterAssignee').value = '';
+            filteredData = appData;
+            renderDashboard();
+            updateStats();
+        }
+
+        function exportToCSV() {
+            let csv = 'ID,Título,Descripción,Prioridad,Área,Estado,Progreso,Responsable,Inicio,Fin,Notas\n';
+            appData.forEach(item => {
+                const notes = (item.notes || '').replace(/"/g, '""').replace(/\n/g, ' ');
+                csv += `"${item.id}","${item.title}","${item.desc}","${item.priority}","${item.area}","${item.status}","${item.progress}%","${item.assignee}","${item.start}","${item.end}","${notes}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `FLOW-Report-${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.openNotesModal = function(index) {
+            currentEditingIndex = index;
+            const item = appData[index];
+            document.getElementById('notesModalTitle').innerText = `#${item.id} ${item.title} - Notas Técnicas`;
+            document.getElementById('notesTextarea').value = item.notes || '';
+            document.getElementById('notesModal').classList.add('show');
+        }
+
+        // AUTHENTICATION
+        window.requireAuth = function() {
+            if(!isAuthenticated) {
+                document.getElementById('authModal').classList.add('show');
+                return false;
+            }
+            return true;
+        }
+
+        window.verifyPassword = function() {
+            const password = document.getElementById('authPassword').value;
+            if(password === PASSWORD) {
+                isAuthenticated = true;
+                closeAuthModal();
+                alert('Acceso concedido. Ya puede realizar cambios.');
+            } else {
+                alert('Contraseña incorrecta.');
+                document.getElementById('authPassword').value = '';
+            }
+        }
+
+        window.closeAuthModal = function(event) {
+            if(event && event.target.id !== 'authModal') return;
+            document.getElementById('authModal').classList.remove('show');
+            document.getElementById('authPassword').value = '';
+        }
+
+        // CREATE INCIDENT
+        window.openCreateIncidentModal = function() {
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newDesc').value = '';
+            document.getElementById('newPriority').value = 'Alta';
+            document.getElementById('newArea').value = 'Almacén';
+            document.getElementById('createIncidentModal').classList.add('show');
+        }
+
+        window.closeCreateIncidentModal = function(event) {
+            if(event && event.target.id !== 'createIncidentModal') return;
+            document.getElementById('createIncidentModal').classList.remove('show');
+        }
+
+        window.saveNewIncident = function() {
+            const title = document.getElementById('newTitle').value.trim();
+            const desc = document.getElementById('newDesc').value.trim();
+            const priority = document.getElementById('newPriority').value;
+            const area = document.getElementById('newArea').value;
+
+            if(!title) {
+                alert('Por favor ingrese un título.');
+                return;
+            }
+
+            const newId = Math.max(...appData.map(i => i.id), 0) + 1;
+            const newIncident = {
+                id: newId,
+                priority: priority,
+                area: area,
+                title: title,
+                desc: desc,
+                progress: 0,
+                start: '',
+                end: '',
+                assignee: '',
+                notes: '',
+                status: 'Nuevo'
+            };
+
+            appData.push(newIncident);
+            localStorage.setItem('flowData_v3', JSON.stringify(appData));
+            closeCreateIncidentModal();
+            filterItems();
+            alert('Incidencia creada exitosamente.');
+        }
+
+        window.closeNotesModal = function(event) {
+            if(event && event.target.id !== 'notesModal') return;
+            document.getElementById('notesModal').classList.remove('show');
+            currentEditingIndex = null;
+        }
+
+        window.saveNotes = function() {
+            if(currentEditingIndex !== null) {
+                const notesText = document.getElementById('notesTextarea').value;
+                updateData(currentEditingIndex, 'notes', notesText);
+                closeNotesModal();
+            }
+        }
+
+        window.updateData = function(index, field, value) {
+            if(!requireAuth()) return;
+            
+            if(field === 'progress') value = parseInt(value);
+            appData[index][field] = value;
+            
+            // Sync Views if changing progress
+            if(field === 'progress') {
+                document.getElementById(`dash-percent-${index}`).innerText = value + '%';
+                const schedPercent = document.getElementById(`sched-percent-${index}`);
+                const schedBar = document.getElementById(`sched-bar-${index}`);
+                if(schedPercent) schedPercent.innerText = value + '%';
+                if(schedBar) schedBar.style.width = value + '%';
+                updateStats();
+                // Refresh schedule row to update status if 100%
+                if(value === 100 || value < 100) renderSchedule(); 
+            } else {
+                // If changing dates, refresh status column
+                renderSchedule();
+            }
+
+            localStorage.setItem('flowData_v3', JSON.stringify(appData));
+        }
+
+        function getTimeStatus(endDateStr, progress) {
+            if (progress === 100) return { text: 'Completado', color: 'bg-green-500', textColor: 'text-green-700', subtext: 'Finalizado' };
+            if (!endDateStr) return { text: 'Sin Fecha', color: 'bg-slate-300', textColor: 'text-slate-500', subtext: 'Definir deadline' };
+
+            const end = new Date(endDateStr);
+            // Reset hours to compare dates cleanly
+            const now = new Date(); now.setHours(0,0,0,0);
+            end.setHours(0,0,0,0); // Treat deadline as end of day usually, but strict compare here
+
+            const diffTime = end - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) return { text: 'Vencido', color: 'bg-red-500', textColor: 'text-red-600', subtext: `${Math.abs(diffDays)} días tarde` };
+            if (diffDays === 0) return { text: 'Vence Hoy', color: 'bg-orange-500', textColor: 'text-orange-600', subtext: 'Acción inmediata' };
+            if (diffDays <= 3) return { text: 'Próximo', color: 'bg-yellow-400', textColor: 'text-yellow-700', subtext: `${diffDays} días restan` };
+            
+            return { text: 'A Tiempo', color: 'bg-blue-500', textColor: 'text-blue-600', subtext: `${diffDays} días restan` };
+        }
+
+        function updateStats() {
+            const total = appData.length;
+            const avg = Math.round(appData.reduce((acc, c) => acc + c.progress, 0) / total);
+            
+            const high = appData.filter(i => i.priority === 'Alta');
+            const highAvg = Math.round(high.reduce((acc, c) => acc + c.progress, 0) / high.length) || 0;
+            
+            const med = appData.filter(i => i.priority === 'Media');
+            const medAvg = Math.round(med.reduce((acc, c) => acc + c.progress, 0) / med.length) || 0;
+
+            // Contar vencidas o bloqueadas
+            const criticalItems = appData.filter(i => {
+                if(i.status === 'Bloqueado') return true;
+                if(i.end && new Date(i.end) < new Date() && i.progress < 100) return true;
+                return false;
+            }).length;
+
+            document.getElementById('globalProgress').innerText = avg + '%';
+            document.getElementById('globalProgressBar').style.width = avg + '%';
+            
+            document.getElementById('highPriorityText').innerText = highAvg + '%';
+            document.getElementById('highPriorityBar').style.width = highAvg + '%';
+            
+            document.getElementById('mediumPriorityText').innerText = medAvg + '%';
+            document.getElementById('mediumPriorityBar').style.width = medAvg + '%';
+
+            document.getElementById('totalIncidents').innerText = total;
+            document.getElementById('criticalCount').innerText = criticalItems;
+            document.getElementById('avgProgress').innerText = avg + '%';
+        }
+
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700'));
+            
+            if(tab === 'dashboard') {
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                document.getElementById('view-schedule').classList.add('hidden');
+                document.getElementById('btn-dashboard').classList.add('active');
+            } else {
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('view-schedule').classList.remove('hidden');
+                document.getElementById('btn-schedule').classList.add('active');
+            }
+        }
+
+        window.resetData = function() {
+            if(confirm('¿Reiniciar todo? Se borrarán fechas y avances.')) {
+                localStorage.removeItem('flowData_v3');
+                appData = JSON.parse(JSON.stringify(initialData));
+                init();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
