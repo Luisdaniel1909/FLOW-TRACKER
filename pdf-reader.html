@@ -26,63 +26,7 @@
             height: 100vh;
         }
 
-        header {
-            background-color: var(--primary-blue);
-            color: white;
-            padding: 0 20px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .brand {
-            font-weight: 800;
-            font-size: 1.5rem;
-            letter-spacing: 1px;
-            color: #3b82f6;
-        }
-        
-        .brand span { color: white; }
-
-        .app-title {
-            border-left: 1px solid #4a5568;
-            padding-left: 15px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .app-title strong { font-size: 1rem; }
-        .app-title small { font-size: 0.75rem; color: #a0aec0; }
-
-        .header-controls {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .date-display {
-            background: rgba(255,255,255,0.1);
-            padding: 5px 15px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .main-container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-            padding: 20px;
-            gap: 20px;
-        }
-
+        /* Estilos específicos que tenías definidos */
         .files-sidebar {
             width: 350px;
             background: var(--card-white);
@@ -207,6 +151,14 @@
         .btn-action:hover { background-color: #0b5ed7; }
 
         .nav-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 20px;
+            gap: 20px;
+        }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -239,7 +191,7 @@
                 <div class="flex items-center gap-2">
                     <div class="text-right">
                         <p class="text-xs text-slate-400">Hoy es</p>
-                        <p class="text-xs font-bold text-white" id="currentDateHeader">26 de enero de 2026</p>
+                        <p class="text-xs font-bold text-white" id="currentDateHeader">...</p>
                     </div>
                     <i class="fa-regular fa-calendar text-slate-500"></i>
                 </div>
@@ -252,21 +204,6 @@
         <button onclick="switchTab('schedule')" class="flex-1 py-2 px-4 rounded border text-sm font-bold text-slate-600">Cronograma</button>
         <button onclick="switchTab('reportes')" class="flex-1 py-2 px-4 rounded border text-sm font-bold bg-blue-50 text-blue-600 border-blue-200">Reportes</button>
     </div>
-
-    <header style="display:none;">
-        <div class="logo-section">
-            <div class="brand">SEKISUI <span>|</span></div>
-            <div class="app-title">
-                <strong>FLOW WMS Reports</strong>
-                <small>Histórico de Reportes</small>
-            </div>
-        </div>
-        <div class="header-controls">
-            <div class="date-display" id="currentDate">
-                <i class="far fa-calendar-alt"></i> Hoy es...
-            </div>
-        </div>
-    </header>
 
     <div class="main-container">
         <aside class="files-sidebar">
@@ -295,87 +232,99 @@
     </div>
 
     <script>
-        const pdfFiles = [
-            "2026-01-07_REPORTE INSTANCIAS.pdf",
-            "2025-12-04_Reporte 01.pdf",
-            "2025-12-16_Reporte 02.pdf",
-            "2026-01-05_Reporte 03.pdf",
-            "2026-01-11_Reporte 04.pdf"
-        ];
-        function formatDate(dateString) {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(dateString).toLocaleDateString('es-ES', options);
-        }
-
-        document.getElementById('currentDate').innerText = "Hoy es " + new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-        function initGallery() {
-            const container = document.getElementById('fileListContainer');
-            const viewerWrapper = document.getElementById('pdfWrapper');
-            const viewerTitle = document.getElementById('viewerTitle');
-            const countLabel = document.getElementById('fileCount');
-            const downloadBtn = document.getElementById('downloadBtn');
-
-            const processedFiles = pdfFiles.map(filename => {
-                const parts = filename.split('_');
-                const datePart = parts[0]; 
-                const namePart = parts.slice(1).join(' ').replace('.pdf', '').replace(/-/g, ' ');
-                
-                return {
-                    original: filename,
-                    dateObj: new Date(datePart),
-                    dateDisplay: datePart,
-                    displayName: namePart
-                };
-            }).sort((a, b) => b.dateObj - a.dateObj);
-
-            countLabel.innerText = processedFiles.length;
-
-            processedFiles.forEach((file, index) => {
-                const card = document.createElement('div');
-                card.className = 'pdf-card';
-                card.innerHTML = `
-                    <div class="pdf-icon"><i class="fas fa-file-pdf"></i></div>
-                    <div class="pdf-info">
-                        <span class="pdf-name">${file.displayName}</span>
-                        <span class="pdf-date"><i class="far fa-clock"></i> ${file.dateDisplay}</span>
-                    </div>
-                    <i class="fas fa-chevron-right" style="color:#ccc; font-size:0.8rem;"></i>
-                `;
-
-                card.addEventListener('click', () => {
-                    document.querySelectorAll('.pdf-card').forEach(c => c.classList.remove('active'));
-                    card.classList.add('active');
-
-                    const pdfPath = `pdf/${file.original}`;
-                    viewerWrapper.innerHTML = `<iframe src="${pdfPath}#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf"></iframe>`;
-                    
-                    viewerTitle.innerText = file.displayName;
-                    downloadBtn.style.display = 'inline-block';
-                    downloadBtn.href = pdfPath;
-                });
-
-                container.appendChild(card);
-            });
-        }
-
-        initGallery();
-
-        window.switchTab = function(tab) {
-            if(tab === 'dashboard') {
-                window.location.href = 'index.html';
-            } else if(tab === 'schedule') {
-                window.location.href = 'index.html';
-            }
-            // Si tab === 'reportes', ya estamos aquí
-        }
-
         // Actualizar fecha actual en el header
         const hoy = new Date();
         const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         const fechaFormato = hoy.toLocaleDateString('es-ES', opciones);
         const fechaCapitalizada = fechaFormato.charAt(0).toUpperCase() + fechaFormato.slice(1);
         document.getElementById('currentDateHeader').innerText = fechaCapitalizada;
+
+        // --- LÓGICA PARA GITHUB PAGES (FETCH JSON) ---
+        async function initGallery() {
+            const container = document.getElementById('fileListContainer');
+            const viewerWrapper = document.getElementById('pdfWrapper');
+            const viewerTitle = document.getElementById('viewerTitle');
+            const countLabel = document.getElementById('fileCount');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            try {
+                // 1. PETICIÓN AL JSON: Aquí es donde GitHub leerá tu archivo lista_pdfs.json
+                const response = await fetch('lista_pdfs.json');
+                
+                if (!response.ok) {
+                    throw new Error("No se encontró el archivo lista_pdfs.json");
+                }
+                
+                // Convertimos la respuesta a un arreglo de JS
+                const pdfFiles = await response.json();
+
+                // 2. PROCESAMIENTO (Igual que antes)
+                const processedFiles = pdfFiles.map(filename => {
+                    const parts = filename.split('_');
+                    const datePart = parts[0]; 
+                    const namePart = parts.slice(1).join(' ').replace('.pdf', '').replace(/-/g, ' ');
+                    
+                    return {
+                        original: filename,
+                        dateObj: new Date(datePart),
+                        dateDisplay: datePart,
+                        displayName: namePart
+                    };
+                }).sort((a, b) => b.dateObj - a.dateObj);
+
+                countLabel.innerText = processedFiles.length;
+
+                // 3. GENERACIÓN DE ELEMENTOS
+                processedFiles.forEach((file) => {
+                    const card = document.createElement('div');
+                    card.className = 'pdf-card';
+                    card.innerHTML = `
+                        <div class="pdf-icon"><i class="fas fa-file-pdf"></i></div>
+                        <div class="pdf-info">
+                            <span class="pdf-name">${file.displayName}</span>
+                            <span class="pdf-date"><i class="far fa-clock"></i> ${file.dateDisplay}</span>
+                        </div>
+                        <i class="fas fa-chevron-right" style="color:#ccc; font-size:0.8rem;"></i>
+                    `;
+
+                    card.addEventListener('click', () => {
+                        document.querySelectorAll('.pdf-card').forEach(c => c.classList.remove('active'));
+                        card.classList.add('active');
+
+                        const pdfPath = `pdf/${file.original}`;
+                        viewerWrapper.innerHTML = `<iframe src="${pdfPath}#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf"></iframe>`;
+                        
+                        viewerTitle.innerText = file.displayName;
+                        downloadBtn.style.display = 'inline-block';
+                        downloadBtn.href = pdfPath;
+                    });
+
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error("Error cargando la lista:", error);
+                container.innerHTML = `
+                    <div style="padding:20px; text-align:center; color:#dc3545;">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                        <p>Error cargando archivos.</p>
+                        <small>Asegúrate de haber subido 'lista_pdfs.json' a GitHub.</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Iniciar la galería asíncrona
+        initGallery();
+
+        // Navegación
+        window.switchTab = function(tab) {
+            if(tab === 'dashboard') {
+                window.location.href = 'index.html';
+            } else if(tab === 'schedule') {
+                window.location.href = 'index.html'; // Ajusta esto si tienes otra página
+            }
+        }
     </script>
 </body>
 </html>
